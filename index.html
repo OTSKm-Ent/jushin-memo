@@ -228,6 +228,7 @@
   .record-actions button.big { flex: 1; min-width: 150px; padding: 11px 16px; font-size: 14px; }
   .rec-msg { display: none; font-size: 13px; color: #4A6B2A; background: var(--green-soft); border-radius: 8px; padding: 8px 12px; margin-bottom: 14px; }
   .rec-msg.show { display: block; }
+  .app-credit { text-align: center; font-size: 11px; color: #C9C2B3; letter-spacing: .08em; margin-top: 24px; }
 
   /* プレビュー */
   #previewView { display: none; }
@@ -269,7 +270,7 @@
   @media print {
     body { background: #fff; }
     .wrap { max-width: none; padding: 0; }
-    header.app-head, .preview-toolbar, .edit-note, .step-note, .env-note, .draft-note, .record-actions, .rec-msg, .ask-back { display: none !important; }
+    header.app-head, .preview-toolbar, .edit-note, .step-note, .env-note, .draft-note, .record-actions, .rec-msg, .ask-back, .app-credit { display: none !important; }
     .sheet { border: none; box-shadow: none; border-radius: 0; padding: 0; font-size: 10.5pt; }
     .sheet section { break-inside: avoid; page-break-inside: avoid; }
   }
@@ -570,6 +571,8 @@
       <li>ホーム画面のアイコンから開いた場合と、Safariで開いた場合とでは、保存場所が別になることがあります。いつも同じ開き方で使ってください。</li>
     </ul>
   </div>
+
+  <div class="app-credit">OTSKm Entertainment</div>
 
 </div>
 
