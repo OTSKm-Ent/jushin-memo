@@ -2,9 +2,16 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data: blob:; manifest-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>受診共有メモ変換ツール v3</title>
+<meta name="apple-mobile-web-app-title" content="受診メモ">
+<meta name="application-name" content="受診メモ">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#FFFBF2">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
 <style>
   :root {
     --cream: #FFFBF2;
@@ -266,6 +273,16 @@
     .sheet { border: none; box-shadow: none; border-radius: 0; padding: 0; font-size: 10.5pt; }
     .sheet section { break-inside: avoid; page-break-inside: avoid; }
   }
+  .about-note {
+    font-size: 12.5px; color: var(--ink-soft); background: var(--paper); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 14px 16px; margin-top: 28px; line-height: 1.75;
+  }
+  .about-note h2 { font-size: 13.5px; color: var(--ink); margin-bottom: 6px; }
+  .about-note ul { list-style: none; }
+  .about-note li { padding-left: 1em; text-indent: -1em; margin-bottom: 5px; }
+  .about-note li::before { content: "・"; }
+  #previewView.show ~ .about-note { display: none; }
+  @media print { .about-note { display: none !important; } }
 </style>
 </head>
 <body>
@@ -290,7 +307,7 @@
   </header>
 
   <div class="step-note">
-    入力した内容は、この端末のブラウザの中に保存されます。このツールが自動で内容を送ることはありません。送るのは、あなたが「LINEやメールで送る」「ファイルに保存」を押して、送り先を自分で選んだときだけです。自分専用の端末で使ってください。使い終わったら「下書きを消す」で入力中の内容を消せます(保存した記録は、一覧の「削除」で消せます)。
+    入力した内容は、この端末のブラウザの中に保存されます。このツールが自動で内容を送ることはありません。内容が外に出るのは、自分で送る・ファイルに保存する・コピーして貼り付ける、のいずれかをしたときだけです。自分専用の端末で使ってください。使い終わったら「下書きを消す」で入力中の内容を消せます(保存した記録は、一覧の「削除」で消せます)。
   </div>
 
   <!-- ================= 入力フォーム ================= -->
@@ -306,7 +323,7 @@
       <div id="recList"></div>
       <button type="button" class="btn-sub" onclick="document.getElementById('recFile').click()">ファイルから読み込む</button>
       <input type="file" id="recFile" accept=".json,application/json" style="display:none;" onchange="importRecordFile(this)">
-      <div class="rec-note">ここに保存した記録は、このiPhoneのSafariの中にだけあります。Safariの『履歴とWebサイトデータを消去』をすると消えます。大事な記録は『ファイルに保存』でiCloudにも残してください。<br>また、iPhoneのSafariでは、しばらく開かないと保存した記録が自動で消えることがあります。ホーム画面に追加して使い、大事な記録は「ファイルに保存」で残してください。</div>
+      <div class="rec-note">ここに保存した記録は、このiPhoneの中(このツールを開いているブラウザやホーム画面アイコンの中)にだけあります。Safariの『履歴とWebサイトデータを消去』をしたり、長いあいだ開かなかったりすると、消えることがあります。ホーム画面のアイコンから開いた場合とSafariで開いた場合とでは、保存場所が別になることがあります。大事な記録は『ファイルに保存』でiCloudにも残してください。</div>
     </div>
 
     <div class="card">
@@ -540,6 +557,18 @@
         <div contenteditable="true" class="plain" id="p_tsuiki"></div>
       </section>
     </div>
+  </div>
+
+  <div class="about-note">
+    <h2>このツールについて</h2>
+    <ul>
+      <li>入力した内容と保存した記録は、この端末の中(このツールを開いているブラウザやホーム画面アイコンの中)にだけ残ります。作った人や、インターネット上の他の人からは見えません(この端末を使える人には見えます)。</li>
+      <li>残るもの:入力中の下書き/保存した記録/固定情報テンプレ(氏名ラベル・生年月日・医療機関・診断・薬)。</li>
+      <li>このツールが自動で内容を送ることはありません。内容が外に出るのは、自分で送る・ファイルに保存する・コピーして貼り付ける、のいずれかをしたときだけです。</li>
+      <li>コピペ変換でコピーされるのは、受診メモに書いた本文(お願いの宛先を含む)です。氏名・生年月日・病院名・診断・薬を、ツールが自動で付け足すことはありません。ただし、本文に自分で書いたことは、そのまま含まれます。</li>
+      <li>ブラウザのデータを消したり、長いあいだ開かなかったりすると、保存した記録が消えることがあります。大事な記録は「ファイルに保存」で残してください。</li>
+      <li>ホーム画面のアイコンから開いた場合と、Safariで開いた場合とでは、保存場所が別になることがあります。いつも同じ開き方で使ってください。</li>
+    </ul>
   </div>
 
 </div>
@@ -1284,9 +1313,8 @@ function backToForm() {
 }
 
 /* ================= コピー ================= */
-function buildShareText() {
-  const g = pText;
-
+// g(id) は、各項目の文章を返す関数(プレビュー画面から / 保存した記録の確定文から)
+function shareTextFrom(g) {
   return `【受診日】${g("p_date")}
 【次回受診予定日】${g("p_next")}
 
@@ -1313,6 +1341,9 @@ ${g("p_sonota")}
 
 【追記】
 ${g("p_tsuiki")}`;
+}
+function buildShareText() {
+  return shareTextFrom(pText);
 }
 
 function copyAll() {
@@ -1582,25 +1613,33 @@ function recordFileName(r) {
   const date = /^\d{4}-\d{2}-\d{2}$/.test(r.state.f_date || "") ? r.state.f_date : "日付なし";
   return "受診記録_" + date + "_" + (clean(r.state.f_name) || "名前なし") + ".json";
 }
+function downloadFile(text, name, type) {
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const a = document.createElement("a");
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+// 2つのファイルを一緒に保存する: .json = このツールに読み込む用 / .txt = 人が読む用(全文コピーと同じ文章)
 async function exportRecord(r) {
-  const json = JSON.stringify({ app: "jushin-memo", version: 1, record: r }, null, 2);
-  const name = recordFileName(r);
+  const jsonName = recordFileName(r);
+  const items = [{ text: JSON.stringify({ app: "jushin-memo", version: 1, record: r }, null, 2), name: jsonName, type: "application/json" }];
+  if (r.finalText) {
+    const readable = shareTextFrom(id => String(r.finalText[id] || "").trim());
+    items.push({ text: readable, name: jsonName.replace(/\.json$/, ".txt"), type: "text/plain" });
+  }
   // iPhone: 共有シートにファイルを渡す(「"ファイル"に保存」でiCloudに置ける)
   try {
-    const file = new File([json], name, { type: "application/json" });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file] });
+    const files = items.map(it => new File([it.text], it.name, { type: it.type }));
+    if (navigator.canShare && navigator.canShare({ files })) {
+      await navigator.share({ files });
       return;
     }
   } catch (e) {
     if (e && e.name === "AbortError") return;   // 共有シートを閉じただけ
   }
   // 使えない環境: ダウンロードに切り替える
-  const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
-  const a = document.createElement("a");
-  a.href = url; a.download = name;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  items.forEach((it, i) => setTimeout(() => downloadFile(it.text, it.name, it.type), i * 600));
 }
 function exportCurrentRecord() {
   exportRecord(currentRecord());

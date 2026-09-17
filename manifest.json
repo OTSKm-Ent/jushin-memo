@@ -1,0 +1,13 @@
+{
+  "name": "受診メモ",
+  "short_name": "受診メモ",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#FFFBF2",
+  "theme_color": "#FFFBF2",
+  "icons": [
+    { "src": "apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}
