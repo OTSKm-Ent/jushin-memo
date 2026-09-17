@@ -108,7 +108,7 @@
     background: #FFFDF8; resize: none; overflow: hidden; min-height: 176px; line-height: 1.7;
     display: block;
   }
-  .memo-block textarea#m_advice { min-height: 264px; }
+  .memo-block textarea.tall { min-height: 264px; }
   .memo-block textarea:focus { outline: 2px solid var(--orange); outline-offset: 1px; border-color: transparent; }
   .btn-expand {
     position: absolute; top: 0; right: 0;
@@ -142,6 +142,31 @@
     font-family: inherit; font-size: 13px; font-weight: 700; color: var(--ink-soft);
     background: #fff; border: 1px solid var(--line); border-radius: 999px; padding: 5px 14px; cursor: pointer;
   }
+
+  /* 繰り返し入力(相談の組・宛先つきお願い・薬) */
+  .rep-group { margin-bottom: 18px; }
+  .rep-title { font-size: 14px; font-weight: 700; margin-bottom: 3px; }
+  .rep-group > .sub { font-size: 12px; color: var(--ink-soft); margin-bottom: 8px; }
+  .rep-item {
+    border: 1px solid var(--line); border-radius: 10px;
+    padding: 12px 12px 14px; margin-bottom: 10px; background: #FFFEFB;
+  }
+  .rep-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .rep-no { font-weight: 700; color: var(--orange); font-size: 14px; }
+  .rep-item .memo-block { margin-bottom: 12px; }
+  .rep-item .memo-block:last-child { margin-bottom: 0; }
+  .btn-del {
+    font-family: inherit; font-size: 12.5px; color: var(--ink-soft); background: #fff;
+    border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; cursor: pointer;
+  }
+  .btn-add {
+    width: 100%; font-family: inherit; font-size: 14px; font-weight: 700; color: var(--orange);
+    background: #fff; border: 1.5px dashed var(--orange); border-radius: 10px; padding: 10px; cursor: pointer;
+  }
+  .med-times { display: flex; gap: 6px 18px; flex-wrap: wrap; margin: 10px 0; }
+  .med-times label { display: flex; align-items: center; gap: 6px; font-size: 15px; cursor: pointer; }
+  .med-times input { width: 20px; height: 20px; accent-color: var(--orange); }
+  .med-amount { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
 
   .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
   button.big {
@@ -184,7 +209,14 @@
   .sheet section { margin-bottom: 13px; break-inside: avoid; page-break-inside: avoid; }
   .sheet h3 { font-size: 10.5pt; font-weight: 700; margin-bottom: 3px; }
   .sheet .pair { display: grid; grid-template-columns: 1fr 1.3fr; gap: 0 18px; }
-  @media (max-width: 560px) { .sheet .pair { grid-template-columns: 1fr; } }
+  @media (max-width: 560px) {
+    .sheet .pair { grid-template-columns: 1fr; }
+    /* 1列のときは「見出し→中身→見出し→中身」の順に並べる */
+    .sheet .pair > :nth-child(1) { order: 1; }
+    .sheet .pair > :nth-child(3) { order: 2; margin-bottom: 8px; }
+    .sheet .pair > :nth-child(2) { order: 3; }
+    .sheet .pair > :nth-child(4) { order: 4; }
+  }
   .sheet [contenteditable] { min-height: 1.2em; border-radius: 3px; }
   .sheet [contenteditable]:hover { background: #FFF6E8; }
   .sheet [contenteditable]:focus { outline: 2px solid var(--orange); background: #FFF6E8; }
@@ -239,7 +271,7 @@
     <div class="card">
       <h2>固定情報テンプレ(任意)</h2>
       <div class="hint" style="margin-bottom:10px;">
-        氏名・生年月日・医療機関だけを保存する簡易テンプレです。受診内容は保存されません。氏名は選択用のラベルで、印刷資料には出ません。
+        氏名・生年月日・医療機関・診断・薬情報を保存する簡易テンプレです。受診内容は保存されません。氏名は選択用のラベルで、印刷資料には出ません。
       </div>
       <div class="slots" id="slots"></div>
       <div class="hint" style="margin-top:8px;">「保存」= 下の基本情報を上書き保存 / 「読込」= フォームに反映</div>
@@ -298,53 +330,41 @@
           <div class="hint">「○○」→「○○医師」</div>
         </div>
       </div>
-      <div class="grid2" style="margin-top:12px;">
-        <div class="field">
-          <label>診断・特性</label>
-          <input type="text" id="f_diagnosis" placeholder="例:○○障害/○○手帳:○(軽度)">
-        </div>
-        <div class="field">
-          <label>薬情報</label>
-          <input type="text" id="f_medicine" placeholder="例:なし/○○ 朝1錠">
-        </div>
+      <div class="field" style="margin-top:12px;">
+        <label>診断・特性</label>
+        <input type="text" id="f_diagnosis" placeholder="例:○○障害/○○手帳:○(軽度)">
       </div>
     </div>
 
     <div class="card">
-      <h2>受診メモ(文章に整えます)</h2>
+      <h2>薬情報(そのまま転記されます)</h2>
+      <div class="hint" style="margin-bottom:10px;">薬ごとに1つずつ書きます。薬名が空のものは出力されません。</div>
+      <div id="medRows"></div>
+      <button type="button" class="btn-add" onclick="addMed(); saveDraft();">+ 薬を追加</button>
+    </div>
+
+    <div class="card">
+<h2>受診メモ(文章に整えます)</h2>
 
       <div class="memo-block">
         <button type="button" class="btn-expand" onclick="toggleExpand(this)">大きく書く</button>
-        <label>現在の様子(家庭・その他での変化)</label>
-        <div class="sub">最近の困りごと・変化・気になる行動など</div>
-        <textarea id="m_genzai" placeholder="例:&#10;予定の変更が苦手 急に変わると固まる&#10;帰宅後に疲れが出やすい"></textarea>
+        <label>現在の様子・前回受診からの変化</label>
+        <div class="sub">最近の困りごと・変化/前回のアドバイスをやってみた結果など</div>
+        <textarea id="m_genzai" placeholder="例:&#10;予定の変更が苦手 急に変わると固まる&#10;予定表を見せるようにした→落ち着いて動ける日が増えた"></textarea>
       </div>
 
-      <div class="memo-block">
-        <button type="button" class="btn-expand" onclick="toggleExpand(this)">大きく書く</button>
-        <label>前回受診時から実践した事・本人の反応</label>
-        <div class="sub">前回のアドバイスをやってみた結果など</div>
-        <textarea id="m_jissen" placeholder="例:&#10;予定表を見せるようにした→落ち着いて動ける日が増えた"></textarea>
+      <div class="rep-group">
+        <div class="rep-title">今回の相談内容と医師からのアドバイス</div>
+        <div class="sub">相談と、それに対する医師の答えを1組ずつ書きます(片方だけでもOK)</div>
+        <div id="pairRows"></div>
+        <button type="button" class="btn-add" onclick="addPair(); saveDraft();">+ 相談を追加</button>
       </div>
 
-      <div class="memo-block">
-        <button type="button" class="btn-expand" onclick="toggleExpand(this)">大きく書く</button>
-        <label>今回の主な相談内容</label>
-        <textarea id="m_soudan" placeholder="例:&#10;朝の支度に時間がかかる 声かけの工夫は&#10;寝つきが悪い日が続いている&#10;アラーム家でも使っていい?"></textarea>
-      </div>
-
-      <div class="memo-block">
-        <button type="button" class="btn-expand" onclick="toggleExpand(this)">大きく書く</button>
-        <label>医師からの具体的アドバイス</label>
-        <div class="sub">診察中のメモそのままでOK</div>
-        <textarea id="m_advice" placeholder="例:&#10;急かすのは逆効果 手順を絵で見せる&#10;予定は前もって伝えると安心しやすい"></textarea>
-      </div>
-
-      <div class="memo-block">
-        <button type="button" class="btn-expand" onclick="toggleExpand(this)">大きく書く</button>
-        <label>支援において配慮・対応をお願いしたいこと</label>
-        <div class="sub">園・支援者にお願いしたいこと(丁寧な依頼文になります)</div>
-        <textarea id="m_onegai" placeholder="例:&#10;予定の変更は早めに伝えてほしい&#10;疲れた様子のときは休憩をお願い"></textarea>
+      <div class="rep-group">
+        <div class="rep-title">支援において配慮・対応をお願いしたいこと</div>
+        <div class="sub">お願いする相手(宛先)ごとに分けて書けます。丁寧な依頼文になります</div>
+        <div id="onegaiRows"></div>
+        <button type="button" class="btn-add" onclick="addOnegai(); saveDraft();">+ 宛先を追加</button>
       </div>
 
       <div class="memo-block">
@@ -448,20 +468,12 @@
         <div contenteditable="true" class="plain" id="p_medicine"></div>
       </section>
       <section>
-        <h3>【現在の様子(家庭・その他での変化)】</h3>
+        <h3>【現在の様子・前回受診からの変化】</h3>
         <div contenteditable="true" class="plain" id="p_genzai"></div>
       </section>
       <section>
-        <h3>【前回受診時から実践した事・本人の反応】</h3>
-        <div contenteditable="true" class="plain" id="p_jissen"></div>
-      </section>
-      <section>
-        <h3>【今回の主な相談内容】</h3>
-        <div contenteditable="true" class="plain" id="p_soudan"></div>
-      </section>
-      <section>
-        <h3>【医師からの具体的アドバイス】</h3>
-        <div contenteditable="true" class="plain" id="p_advice"></div>
+        <h3>【今回の相談内容と医師からのアドバイス】</h3>
+        <div contenteditable="true" class="plain" id="p_pairs"></div>
       </section>
       <section>
         <h3>【支援において配慮・対応をお願いしたいこと】</h3>
@@ -494,10 +506,6 @@ function autoResize(ta) {
 function memoTextareas() {
   return Array.from(document.querySelectorAll(".memo-block textarea"));
 }
-memoTextareas().forEach(ta => {
-  ta.addEventListener("input", () => autoResize(ta));
-  autoResize(ta);
-});
 
 /* ================= 「大きく書く」(その欄だけ画面いっぱい) ================= */
 function toggleExpand(btn) {
@@ -525,61 +533,253 @@ document.addEventListener("keydown", e => {
   if (open) toggleExpand(open);
 });
 
-/* ================= 下書き自動保存 ================= */
-const DRAFT_KEY = "jushin-draft";
-const DRAFT_FIELDS = [
+/* ================= 繰り返し入力(相談の組・宛先つきお願い・薬) ================= */
+const CIRCLED = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳";
+function circled(i) { return CIRCLED[i] || `(${i + 1})`; }
+const EXPAND_BTN = '<button type="button" class="btn-expand" onclick="toggleExpand(this)">大きく書く</button>';
+const REP_HEAD = '<div class="rep-head"><span class="rep-no"></span><button type="button" class="btn-del" onclick="removeItem(this)">削除</button></div>';
+const ONEGAI_TO = ["園", "学校", "訪問看護", "相談員", "放課後デイ", "その他"];
+const MED_TIMES = ["朝", "昼", "夕", "眠前"];
+const MED_UNITS = ["錠", "ml", "包", "滴", "その他"];
+
+function makeItem(cls, html) {
+  const d = document.createElement("div");
+  d.className = "rep-item " + cls;
+  d.innerHTML = html;
+  return d;
+}
+function appendItem(containerId, el) {
+  document.getElementById(containerId).appendChild(el);
+  renumber();
+  el.querySelectorAll(".memo-block textarea").forEach(autoResize);
+}
+
+function addPair(data) {
+  const el = makeItem("pair-item", `${REP_HEAD}
+    <div class="memo-block">${EXPAND_BTN}
+      <label class="lb-soudan"></label>
+      <textarea class="p-soudan" placeholder="例:&#10;朝の支度に時間がかかる 声かけの工夫は"></textarea>
+    </div>
+    <div class="memo-block">${EXPAND_BTN}
+      <label class="lb-advice"></label>
+      <div class="sub">診察中のメモそのままでOK</div>
+      <textarea class="p-advice tall" placeholder="例:&#10;急かすのは逆効果 手順を絵で見せる"></textarea>
+    </div>`);
+  if (data) {
+    el.querySelector(".p-soudan").value = data.soudan || "";
+    el.querySelector(".p-advice").value = data.advice || "";
+  }
+  appendItem("pairRows", el);
+}
+
+function addOnegai(data) {
+  const opts = ['<option value="">(宛先を選ぶ)</option>']
+    .concat(ONEGAI_TO.map(t => `<option value="${t}">${t}</option>`)).join("");
+  const el = makeItem("onegai-item", `${REP_HEAD}
+    <div class="field">
+      <label>宛先</label>
+      <select class="o-to" onchange="syncOther(this)">${opts}</select>
+      <input type="text" class="o-other" placeholder="宛先を入力" style="display:none; margin-top:6px;">
+    </div>
+    <div class="memo-block" style="margin-top:10px;">${EXPAND_BTN}
+      <label>お願いしたい内容</label>
+      <textarea class="o-text" placeholder="例:&#10;予定の変更は早めに伝えてほしい"></textarea>
+    </div>`);
+  if (data) {
+    const sel = el.querySelector(".o-to");
+    sel.value = ONEGAI_TO.includes(data.to) ? data.to : "";
+    el.querySelector(".o-other").value = data.other || "";
+    el.querySelector(".o-text").value = data.text || "";
+    syncOther(sel);
+  }
+  appendItem("onegaiRows", el);
+}
+
+function addMed(data) {
+  const times = MED_TIMES.map(t => `<label><input type="checkbox" class="md-t" value="${t}"> ${t}</label>`).join("");
+  const units = MED_UNITS.map(u => `<option value="${u}">${u}</option>`).join("");
+  const el = makeItem("med-item", `${REP_HEAD}
+    <div class="field">
+      <label>薬名</label>
+      <input type="text" class="md-name" placeholder="例:○○錠">
+    </div>
+    <div class="med-times">${times}</div>
+    <div class="med-amount">
+      <div class="field">
+        <label>量(1回分)</label>
+        <input type="text" inputmode="decimal" class="md-amount" placeholder="例:1">
+      </div>
+      <div class="field">
+        <label>単位</label>
+        <select class="md-unit" onchange="syncOther(this)">${units}</select>
+        <input type="text" class="md-unit-other" placeholder="単位を入力" style="display:none; margin-top:6px;">
+      </div>
+    </div>
+    <div class="field">
+      <label>注意点</label>
+      <input type="text" class="md-note" placeholder="例:眠気に注意">
+    </div>`);
+  if (data) {
+    el.querySelector(".md-name").value = data.name || "";
+    el.querySelectorAll(".md-t").forEach(c => { c.checked = Array.isArray(data.times) && data.times.includes(c.value); });
+    el.querySelector(".md-amount").value = data.amount || "";
+    const sel = el.querySelector(".md-unit");
+    sel.value = MED_UNITS.includes(data.unit) ? data.unit : MED_UNITS[0];
+    el.querySelector(".md-unit-other").value = data.unitOther || "";
+    el.querySelector(".md-note").value = data.note || "";
+    syncOther(sel);
+  }
+  appendItem("medRows", el);
+}
+
+// 「その他」を選んだ時だけ、すぐ下の自由入力欄を出す
+function syncOther(sel) {
+  const other = sel.parentElement.querySelector('input[type="text"]');
+  other.style.display = sel.value === "その他" ? "block" : "none";
+}
+
+function itemHasContent(item) {
+  return Array.from(item.querySelectorAll('input[type="text"], textarea')).some(e => e.value.trim() !== "")
+    || Array.from(item.querySelectorAll('input[type="checkbox"]')).some(c => c.checked);
+}
+const ADDERS = { pairRows: addPair, onegaiRows: addOnegai, medRows: addMed };
+function removeItem(btn) {
+  const item = btn.closest(".rep-item");
+  const box = item.parentElement;
+  if (itemHasContent(item) && !confirm("入力した内容ごと削除します。よろしいですか?")) return;
+  item.remove();
+  if (box.children.length === 0) ADDERS[box.id]();   // 最低1つは残す
+  renumber();
+  saveDraft();
+}
+function renumber() {
+  document.querySelectorAll("#pairRows .pair-item").forEach((el, i) => {
+    el.querySelector(".rep-no").textContent = `相談${circled(i)}の組`;
+    el.querySelector(".lb-soudan").textContent = `相談${circled(i)}`;
+    el.querySelector(".lb-advice").textContent = `医師のアドバイス${circled(i)}`;
+  });
+  document.querySelectorAll("#onegaiRows .onegai-item").forEach((el, i) => {
+    el.querySelector(".rep-no").textContent = `宛先${circled(i)}`;
+  });
+  document.querySelectorAll("#medRows .med-item").forEach((el, i) => {
+    el.querySelector(".rep-no").textContent = `薬${circled(i)}`;
+  });
+}
+
+function getPairs() {
+  return Array.from(document.querySelectorAll("#pairRows .pair-item")).map(el => ({
+    soudan: el.querySelector(".p-soudan").value,
+    advice: el.querySelector(".p-advice").value,
+  }));
+}
+function getOnegai() {
+  return Array.from(document.querySelectorAll("#onegaiRows .onegai-item")).map(el => ({
+    to: el.querySelector(".o-to").value,
+    other: el.querySelector(".o-other").value,
+    text: el.querySelector(".o-text").value,
+  }));
+}
+function getMeds() {
+  return Array.from(document.querySelectorAll("#medRows .med-item")).map(el => ({
+    name: el.querySelector(".md-name").value,
+    times: Array.from(el.querySelectorAll(".md-t")).filter(c => c.checked).map(c => c.value),
+    amount: el.querySelector(".md-amount").value,
+    unit: el.querySelector(".md-unit").value,
+    unitOther: el.querySelector(".md-unit-other").value,
+    note: el.querySelector(".md-note").value,
+  }));
+}
+function setRows(containerId, arr, adder) {
+  document.getElementById(containerId).innerHTML = "";
+  (Array.isArray(arr) && arr.length ? arr : [null]).forEach(d => adder(d));
+}
+function setPairs(arr) { setRows("pairRows", arr, addPair); }
+function setOnegai(arr) { setRows("onegaiRows", arr, addOnegai); }
+function setMeds(arr) { setRows("medRows", arr, addMed); }
+
+// v2の「薬情報」1行テキストを、薬の行に読み替える
+function legacyMeds(s) {
+  s = (s || "").trim();
+  return (s && s !== "なし") ? [{ name: s }] : [];
+}
+
+/* ================= 入力内容のまとめ読み書き(下書き・記録で共通) ================= */
+const STATIC_FIELDS = [
   "f_name", "f_birth", "f_date", "f_next_date", "f_next_time", "f_parent_only",
-  "f_hospital", "f_dept", "f_doctor", "f_diagnosis", "f_medicine",
-  "m_genzai", "m_jissen", "m_soudan", "m_advice", "m_onegai", "m_katei", "m_sonota", "m_tsuiki",
+  "f_hospital", "f_dept", "f_doctor", "f_diagnosis",
+  "m_genzai", "m_katei", "m_sonota", "m_tsuiki",
 ];
-function collectDraft() {
+function collectState() {
   const d = {};
-  DRAFT_FIELDS.forEach(id => { d[id] = document.getElementById(id).value; });
+  STATIC_FIELDS.forEach(id => { d[id] = document.getElementById(id).value; });
+  d.pairs = getPairs();
+  d.onegai = getOnegai();
+  d.meds = getMeds();
   d.outstyle = getOutStyle();
   return d;
 }
-function applyDraft(d) {
-  DRAFT_FIELDS.forEach(id => {
-    if (typeof d[id] === "string") document.getElementById(id).value = d[id];
+// 古い形式(v2〜フェーズ1)の下書きを、いまの項目構成に読み替える
+function migrateState(src) {
+  const d = Object.assign({}, src);
+  const str = v => (typeof v === "string" ? v : "");
+  if (str(d.m_jissen).trim()) {
+    d.m_genzai = [str(d.m_genzai), str(d.m_jissen)].filter(s => s.trim()).join("\n");
+  }
+  if (!Array.isArray(d.pairs)) {
+    d.pairs = (str(d.m_soudan).trim() || str(d.m_advice).trim())
+      ? [{ soudan: str(d.m_soudan), advice: str(d.m_advice) }] : [];
+  }
+  if (!Array.isArray(d.onegai)) {
+    d.onegai = str(d.m_onegai).trim() ? [{ to: "", other: "", text: str(d.m_onegai) }] : [];
+  }
+  if (!Array.isArray(d.meds)) d.meds = legacyMeds(d.f_medicine);
+  return d;
+}
+function applyState(src) {
+  const d = migrateState(src || {});
+  STATIC_FIELDS.forEach(id => {
+    document.getElementById(id).value = typeof d[id] === "string" ? d[id] : "";
   });
-  const r = document.querySelector(`input[name="outstyle"][value="${d.outstyle}"]`);
+  setPairs(d.pairs);
+  setOnegai(d.onegai);
+  setMeds(d.meds);
+  const r = document.querySelector(`input[name="outstyle"][value="${d.outstyle === "bullets" ? "bullets" : "prose"}"]`);
   if (r) r.checked = true;
   updateAge();
   memoTextareas().forEach(autoResize);
 }
-function draftHasContent(d) {
-  return DRAFT_FIELDS.some(id => typeof d[id] === "string" && d[id].trim() !== "");
+function stateHasContent(src) {
+  const d = migrateState(src || {});
+  const filled = v => typeof v === "string" && v.trim() !== "";
+  return STATIC_FIELDS.some(id => filled(d[id]))
+    || d.pairs.some(p => filled(p.soudan) || filled(p.advice))
+    || d.onegai.some(o => filled(o.text) || filled(o.other) || filled(o.to))
+    || d.meds.some(m => filled(m.name) || filled(m.amount) || filled(m.note) || (Array.isArray(m.times) && m.times.length > 0));
 }
+
+/* ================= 下書き自動保存 ================= */
+const DRAFT_KEY = "jushin-draft";
 let draftTimer = null;
 function saveDraft() {
   clearTimeout(draftTimer);
   draftTimer = setTimeout(() => {
-    try { localStorage.setItem(DRAFT_KEY, JSON.stringify(collectDraft())); } catch (e) {}
+    try { localStorage.setItem(DRAFT_KEY, JSON.stringify(collectState())); } catch (e) {}
   }, 250);
 }
 function loadDraft() {
   let d = null;
   try { d = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null"); } catch (e) {}
-  if (!d || !draftHasContent(d)) return;
-  applyDraft(d);
+  if (!d || !stateHasContent(d)) return;
+  applyState(d);
   document.getElementById("draftNote").classList.add("show");
 }
 function clearDraft() {
   if (!confirm("保存されている下書きと、いま入力されている内容をすべて消します。よろしいですか?")) return;
+  clearTimeout(draftTimer);
   try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
-  DRAFT_FIELDS.forEach(id => { document.getElementById(id).value = ""; });
-  const r = document.querySelector('input[name="outstyle"][value="prose"]');
-  if (r) r.checked = true;
-  updateAge();
-  memoTextareas().forEach(autoResize);
+  applyState({});
   document.getElementById("draftNote").classList.remove("show");
 }
-(() => {
-  const form = document.getElementById("formView");
-  form.addEventListener("input", saveDraft);
-  form.addEventListener("change", saveDraft);
-  loadDraft();
-})();
 
 /* ================= 自動補完(①) ================= */
 function autoSuffix(input, type) {
@@ -666,7 +866,7 @@ async function saveSlot(i) {
     dept: getVal("f_dept"),
     doctor: getVal("f_doctor"),
     diagnosis: getVal("f_diagnosis"),
-    medicine: getVal("f_medicine"),
+    meds: getMeds(),
   };
   const ok = await storageSetSlots(data);
   renderSlots();
@@ -682,7 +882,7 @@ function loadSlot(i) {
   document.getElementById("f_dept").value = s.dept || "";
   document.getElementById("f_doctor").value = s.doctor || "";
   document.getElementById("f_diagnosis").value = s.diagnosis || "";
-  document.getElementById("f_medicine").value = s.medicine || "";
+  setMeds(Array.isArray(s.meds) ? s.meds : legacyMeds(s.medicine));
   updateAge();
   saveDraft();
 }
@@ -695,15 +895,13 @@ function loadSlot(i) {
 
 /* ================= 変換 ================= */
 const MEMO_KEYS = [
-  { id: "genzai", label: "現在の様子（家庭・その他での変化）", tone: "常体（〜である・〜がある調）で、事実を客観的に" },
-  { id: "jissen", label: "前回受診時から実践した事・本人の反応", tone: "常体で、やったことと本人の反応をセットで" },
-  { id: "soudan", label: "今回の主な相談内容", tone: "常体・体言止め可。簡潔に" },
-  { id: "advice", label: "医師からの具体的アドバイス", tone: "常体で、医師の指示内容として明確に" },
-  { id: "onegai", label: "支援において配慮・対応をお願いしたいこと", tone: "です・ます調の丁寧な依頼文（〜していただけると助かります 等）" },
+  { id: "genzai", label: "現在の様子・前回受診からの変化", tone: "常体（〜である・〜がある調）で、事実を客観的に。実践した事は、やったことと本人の反応をセットで" },
   { id: "katei", label: "家庭での対応予定", tone: "です・ます調（〜する予定です 等）" },
   { id: "sonota", label: "その他共有事項", tone: "です・ます調の丁寧な共有文" },
   { id: "tsuiki", label: "追記", tone: "日付や「↳」などの構造は保ったまま、文だけ読みやすく整える" },
 ];
+const PAIRS_LABEL = "今回の相談内容と医師からのアドバイス";
+const ONEGAI_LABEL = "支援において配慮・対応をお願いしたいこと";
 
 function getVal(id) { return document.getElementById(id).value.trim(); }
 function fmtDate(v) {
@@ -722,20 +920,70 @@ function getOutStyle() {
   return r ? r.value : "prose";
 }
 
+// 中身のある「相談の組」「お願いブロック」だけを、入力順のまま取り出す
+function activePairs() {
+  return getPairs()
+    .map(p => ({ soudan: p.soudan.trim(), advice: p.advice.trim() }))
+    .filter(p => p.soudan || p.advice);
+}
+function onegaiTo(o) {
+  return o.to === "その他" ? (o.other.trim() || "その他") : o.to;
+}
+function activeOnegai() {
+  return getOnegai()
+    .map(o => ({ to: onegaiTo(o), text: o.text.trim() }))
+    .filter(o => o.text);
+}
+
 function buildPrompt() {
   const memos = {};
   MEMO_KEYS.forEach(k => {
     const v = getVal("m_" + k.id);
     if (v) memos[k.id] = v;
   });
-  if (Object.keys(memos).length === 0) return null;
+  const pairs = activePairs();
+  const blocks = activeOnegai();
+  if (Object.keys(memos).length === 0 && pairs.length === 0 && blocks.length === 0) return null;
 
-  const memoText = MEMO_KEYS.filter(k => memos[k.id])
-    .map(k => `【${k.label}】\n${memos[k.id]}`).join("\n\n");
-  const keyList = MEMO_KEYS.filter(k => memos[k.id])
-    .map(k => `"${k.id}"（${k.label}）`).join("、");
+  // 出力の項目順に並べる: 現在の様子 → 相談の組 → お願い → 家庭 → その他 → 追記
+  const parts = [];   // { key, label, text, tone }
+  const simple = id => {
+    const k = MEMO_KEYS.find(x => x.id === id);
+    if (memos[id]) parts.push({ key: id, label: k.label, text: memos[id], tone: k.tone });
+  };
+  simple("genzai");
+  if (pairs.length) {
+    parts.push({
+      key: "soudan_pairs", label: PAIRS_LABEL,
+      text: pairs.map((p, i) => `＜組${i + 1}＞\n相談: ${p.soudan || "（なし）"}\n医師のアドバイス: ${p.advice || "（なし）"}`).join("\n"),
+      tone: "相談(soudan)は常体・簡潔に。アドバイス(advice)は常体で、医師の指示内容として明確に",
+    });
+  }
+  if (blocks.length) {
+    parts.push({
+      key: "onegai_blocks", label: ONEGAI_LABEL,
+      text: blocks.map((b, i) => `＜ブロック${i + 1}＞ to: ${b.to}\n${b.text}`).join("\n"),
+      tone: "です・ます調の丁寧な依頼文（〜していただけると助かります 等）",
+    });
+  }
+  simple("katei"); simple("sonota"); simple("tsuiki");
+
+  const memoText = parts.map(p => `【${p.label}】\n${p.text}`).join("\n\n");
+  const keyList = parts.map(p => `"${p.key}"（${p.label}）`).join("、");
+
+  // 組・ブロックがある時だけ足すルール(対応関係を崩さないための指定)
+  const structRules = [];
+  if (pairs.length) {
+    structRules.push(`- "soudan_pairs"は、相談と医師のアドバイスの組の配列: [{"soudan":"文","advice":"文"}, ...]。組の対応関係を絶対に崩さない。組をまたいで内容を混ぜない。組の数を変えない(今回は${pairs.length}組)。順番も変えない。メモが「（なし）」の側は空文字""で返す。`);
+  }
+  if (blocks.length) {
+    structRules.push(`- "onegai_blocks"は、宛先ごとのお願いの配列: [{"to":"園","text":"文"}, ...]。"to" の値は一字も変えずにそのまま返す。ブロックの数と順番を変えない(今回は${blocks.length}ブロック)。ブロックをまたいで内容を混ぜない。"text"は1つの文字列にする${getOutStyle() === "bullets" ? "(複数の話題がある時は改行で区切り、行頭の「・」は付けない)" : ""}。`);
+  }
+  const structText = structRules.length ? structRules.join("\n") + "\n" : "";
 
   if (getOutStyle() === "prose") {
+    const pairTone = pairs.length
+      ? `- ただし"soudan_pairs"だけは例外として、相談は常体・簡潔に、アドバイスは常体で医師の指示内容として明確に書く(各1〜2文)。\n` : "";
     return `あなたは、障害のある子どもの保護者が書いた受診メモを、園や相談支援専門員などの支援者にそのまま渡せる報告文に書き上げる編集者です。
 
 以下の走り書きメモをもとに、各項目を「読み手(支援者)が状況をすぐ理解できる、自然につながった文章」に仕上げてください。単語の言い換えではなく、報告文としての清書です。
@@ -751,11 +999,11 @@ function buildPrompt() {
 - ただし「最近は」「〜の様子が見られます」「〜していただけると助かります」のような、事実を変えないつなぎ・丁寧表現は積極的に使ってよい。
 - メモにある情報は一つも落とさない。関連する項目は一つの文に自然にまとめてよい。
 - 全体をです・ます調で統一する。
-- 各項目は2〜5文程度の一つのまとまった文章にする(箇条書きにしない)。
+${pairTone}- 各項目は2〜5文程度の一つのまとまった文章にする(箇条書きにしない)。
 - "tsuiki"は日付や「↳」の構造を保ったまま、文だけ丁寧に整える。
-
-出力は次のJSONのみ。前置き・後書き・コードブロック記号は一切不要。値はすべて文字列(改行可):
-{"genzai": "文章", "onegai": "文章", "tsuiki": "整えた本文"}
+${structText}
+出力は次のJSONのみ。前置き・後書き・コードブロック記号は一切不要。値は形の例のとおり(文字列は改行可):
+{"genzai": "文章", "soudan_pairs": [{"soudan": "文", "advice": "文"}], "onegai_blocks": [{"to": "園", "text": "文章"}], "tsuiki": "整えた本文"}
 今回含めるキー: ${keyList}
 
 --- 保護者のメモ ---
@@ -763,8 +1011,7 @@ ${memoText}`;
   }
 
   // 箇条書きモード
-  const sectionsDesc = MEMO_KEYS.filter(k => memos[k.id])
-    .map(k => `- キー"${k.id}"（${k.label}）: ${k.tone}`).join("\n");
+  const sectionsDesc = parts.map(p => `- キー"${p.key}"（${p.label}）: ${p.tone}`).join("\n");
   return `あなたは、障害のある子どもの保護者が書いた受診メモを、園や相談支援専門員などの支援者に共有するための文章に整える編集者です。
 
 以下の走り書きメモを、各項目ごとに「支援者に見せられる完結した一文の箇条書き」に書き直してください。
@@ -781,9 +1028,9 @@ ${memoText}`;
 - 各項目のトーン指定に従う:
 ${sectionsDesc}
 - "tsuiki"だけは箇条書き配列ではなく、改行を含む1つの文字列として、日付見出しや「↳」の構造を保って整える。
-
+${structText}
 出力は次のJSONのみ。前置き・後書き・コードブロック記号は一切不要:
-{"genzai": ["文1", "文2"], "onegai": ["文1"], "tsuiki": "整えた本文"}
+{"genzai": ["文1", "文2"], "soudan_pairs": [{"soudan": "文", "advice": "文"}], "onegai_blocks": [{"to": "園", "text": "文"}], "tsuiki": "整えた本文"}
 今回含めるキー: ${keyList}
 
 --- 保護者のメモ ---
@@ -808,6 +1055,7 @@ function convert() {
   if (!buildPrompt()) { buildPreview(null); return; }
   showFallback();
 }
+
 /* ================= コピペ変換(確実ルート) ================= */
 function toggleFallback() {
   const card = document.getElementById("fallbackCard");
@@ -858,6 +1106,75 @@ function applyPasted() {
 }
 
 /* ================= プレビュー生成 ================= */
+function toBullets(lines) {
+  return lines.map(s => String(s).trim()).filter(Boolean)
+    .map(line => "・" + line.replace(/^[・･\-\s]+/, "")).join("\n");
+}
+// 変換結果(文字列 or 配列)を1つの文章にする。無ければメモをそのまま使う
+function pickText(conv, raw) {
+  if (Array.isArray(conv)) conv = conv.map(s => String(s).trim()).filter(Boolean).join(" ");
+  return (typeof conv === "string" && conv.trim()) ? conv.trim() : raw;
+}
+function hangIndent(text) {
+  return text.split("\n").map(s => s.trim()).filter(Boolean).join("\n　　　　");
+}
+function toHalfWidth(s) {
+  return s.replace(/[０-９．]/g, c => (c === "．" ? "." : String.fromCharCode(c.charCodeAt(0) - 0xFEE0)));
+}
+
+// 薬: 1薬1行。例「テスト錠 朝1錠・夕1錠（眠気に注意）」
+function medLine(m) {
+  const name = (m.name || "").trim();
+  if (!name) return null;
+  const unit = m.unit === "その他" ? (m.unitOther || "").trim() : (m.unit || "");
+  const amount = toHalfWidth((m.amount || "").trim());
+  const dose = amount ? amount + unit : "";
+  const times = Array.isArray(m.times) ? m.times : [];
+  const body = times.length ? times.map(t => t + dose).join("・") : dose;
+  const note = (m.note || "").trim();
+  return [name, body].filter(Boolean).join(" ") + (note ? `（${note}）` : "");
+}
+function buildMedicineText() {
+  return getMeds().map(medLine).filter(Boolean).join("\n");
+}
+
+function buildPairsText(converted) {
+  const pairs = activePairs();
+  if (!pairs.length) return "";
+  let cp = converted && Array.isArray(converted.soudan_pairs) ? converted.soudan_pairs : null;
+  if (cp && cp.length !== pairs.length) cp = null;   // 組の数が合わない変換結果は使わない
+  return pairs.map((p, i) => {
+    const c = cp ? (cp[i] || {}) : {};
+    const lines = [];
+    if (p.soudan) lines.push(`相談：${hangIndent(pickText(c.soudan, p.soudan))}`);
+    if (p.advice) lines.push(`医師：${hangIndent(pickText(c.advice, p.advice))}`);
+    return `${circled(i)} ` + lines.join("\n　");
+  }).join("\n");
+}
+
+function buildOnegaiText(converted) {
+  const blocks = activeOnegai();
+  if (!blocks.length) return "";
+  let cb = converted && Array.isArray(converted.onegai_blocks) ? converted.onegai_blocks : null;
+  if (cb && cb.length !== blocks.length) cb = null;   // ブロックの数が合わない変換結果は使わない
+  const bullets = getOutStyle() === "bullets";
+  return blocks.map((b, i) => {
+    const conv = cb ? (cb[i] || {}).text : undefined;
+    let text;
+    if (Array.isArray(conv)) text = toBullets(conv);
+    else if (typeof conv === "string" && conv.trim()) text = bullets ? toBullets(conv.split("\n")) : conv.trim();
+    else text = toBullets(b.text.split("\n"));
+    // 宛先は変換結果ではなく、入力欄の値をそのまま使う
+    return (b.to ? `■${b.to}\n` : "") + text;
+  }).join("\n");
+}
+
+function structMismatch(converted) {
+  if (!converted) return false;
+  const bad = (arr, n) => Array.isArray(arr) && arr.length !== n;
+  return bad(converted.soudan_pairs, activePairs().length) || bad(converted.onegai_blocks, activeOnegai().length);
+}
+
 function buildPreview(converted) {
   // 補完を確定させる
   autoSuffix(document.getElementById("f_hospital"), "hospital");
@@ -877,36 +1194,36 @@ function buildPreview(converted) {
     [[getVal("f_hospital"), getVal("f_dept")].filter(Boolean).join(" "), getVal("f_doctor")]
       .filter(Boolean).join("　") || "　";
   document.getElementById("p_diagnosis").textContent = getVal("f_diagnosis") || "　";
-  document.getElementById("p_medicine").textContent = getVal("f_medicine") || "　";
+  document.getElementById("p_medicine").textContent = buildMedicineText() || "　";
 
   MEMO_KEYS.forEach(k => {
     const el = document.getElementById("p_" + k.id);
     const raw = getVal("m_" + k.id);
     let content = "";
 
-    if (converted && converted[k.id] !== undefined) {
+    if (converted && converted[k.id] !== undefined && raw) {
       const v = converted[k.id];
-      if (Array.isArray(v)) {
-        // 箇条書きモードの結果
-        content = v.map(line => "・" + String(line).replace(/^[・･\-\s]+/, "")).join("\n");
-      } else {
-        // 文章モードの結果
-        content = String(v);
-      }
+      // 配列=箇条書きモードの結果 / 文字列=文章モードの結果
+      content = Array.isArray(v) ? toBullets(v) : String(v);
     } else if (raw) {
       // 変換なし:メモをそのまま(追記以外は・を付ける)
       const lines = raw.split("\n").map(s => s.trim()).filter(Boolean);
-      content = (k.id === "tsuiki")
-        ? lines.join("\n")
-        : lines.map(line => "・" + line.replace(/^[・･\-\s]+/, "")).join("\n");
+      content = (k.id === "tsuiki") ? lines.join("\n") : toBullets(lines);
     }
 
     el.textContent = content || "　";
   });
 
+  document.getElementById("p_pairs").textContent = buildPairsText(converted) || "　";
+  document.getElementById("p_onegai").textContent = buildOnegaiText(converted) || "　";
+
   document.getElementById("formView").classList.add("hide");
   document.getElementById("previewView").classList.add("show");
   window.scrollTo(0, 0);
+
+  if (structMismatch(converted)) {
+    alert("変換結果の「相談の組」または「お願い」の数が、入力した数と合いませんでした。\n取り違えを防ぐため、その項目はメモのまま表示しています。必要ならプレビュー上で直接直してください。");
+  }
 }
 
 function backToForm() {
@@ -916,11 +1233,10 @@ function backToForm() {
 }
 
 /* ================= コピー ================= */
-function copyAll() {
+function buildShareText() {
   const g = id => document.getElementById(id).textContent.trim();
 
-  const text =
-`【受診日】${g("p_date")}
+  return `【受診日】${g("p_date")}
 【次回受診予定日】${g("p_next")}
 
 【医療機関・担当医】${g("p_hospital")}
@@ -929,17 +1245,11 @@ function copyAll() {
 【薬情報】
 ${g("p_medicine")}
 
-【現在の様子（家庭・その他での変化）】
+【現在の様子・前回受診からの変化】
 ${g("p_genzai")}
 
-【前回受診時から実践した事・本人の反応】
-${g("p_jissen")}
-
-【今回の主な相談内容】
-${g("p_soudan")}
-
-【医師からの具体的アドバイス】
-${g("p_advice")}
+【今回の相談内容と医師からのアドバイス】
+${g("p_pairs")}
 
 【支援において配慮・対応をお願いしたいこと】
 ${g("p_onegai")}
@@ -952,7 +1262,10 @@ ${g("p_sonota")}
 
 【追記】
 ${g("p_tsuiki")}`;
+}
 
+function copyAll() {
+  const text = buildShareText();
   const done = () => {
     const btn = document.getElementById("btnCopy");
     const orig = btn.textContent;
@@ -973,6 +1286,19 @@ function fallbackCopy(text, done) {
   try { document.execCommand("copy"); done(); } catch (e) { alert("コピーできませんでした。文章を長押し/選択して手動コピーしてください。"); }
   document.body.removeChild(ta);
 }
+
+/* ================= 起動 ================= */
+(() => {
+  setPairs([]); setOnegai([]); setMeds([]);   // 最初は1つずつ表示
+  const form = document.getElementById("formView");
+  form.addEventListener("input", e => {
+    if (e.target.matches(".memo-block textarea")) autoResize(e.target);
+    saveDraft();
+  });
+  form.addEventListener("change", saveDraft);
+  memoTextareas().forEach(autoResize);
+  loadDraft();
+})();
 </script>
 </body>
 </html>
