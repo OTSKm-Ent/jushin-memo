@@ -2,6 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; connect-src 'none'; form-action 'none'; base-uri 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>受診共有メモ変換ツール v3</title>
 <style>
@@ -189,6 +190,38 @@
   }
   .err-msg.show { display: block; }
 
+  /* 保存した記録 */
+  .rec-list { max-height: 300px; overflow-y: auto; margin-bottom: 10px; }
+  .rec-row {
+    border: 1px solid var(--line); border-radius: 10px; background: #FFFDF8;
+    padding: 9px 12px; margin-bottom: 8px;
+  }
+  .rec-label { font-size: 14.5px; font-weight: 700; margin-bottom: 6px; word-break: break-all; }
+  .rec-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+  .rec-btns button, .btn-sub {
+    font-family: inherit; font-size: 12.5px; font-weight: 700; padding: 6px 12px;
+    border-radius: 8px; border: 1px solid var(--line); background: #fff; color: var(--ink-soft); cursor: pointer;
+  }
+  .rec-btns .rec-open { background: var(--orange); color: #fff; border-color: var(--orange); }
+  .rec-empty { font-size: 13px; color: var(--ink-soft); margin-bottom: 10px; }
+  .rec-note {
+    font-size: 12px; color: #9A6A1B; background: #FDF3E3; border: 1px solid #F2DDBB;
+    border-radius: 8px; padding: 8px 12px; margin-top: 12px;
+  }
+  .rec-sub { font-size: 12px; color: var(--ink-soft); margin: -4px 0 6px; word-break: break-all; }
+  .ask-back {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 200;
+    background: rgba(61,58,51,.45); display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+  .ask-box { background: #fff; border-radius: var(--radius); padding: 20px 18px; max-width: 420px; width: 100%; }
+  .ask-msg { font-size: 15px; white-space: pre-wrap; margin-bottom: 16px; word-break: break-all; }
+  .ask-btns { display: flex; flex-direction: column; gap: 8px; }
+  .ask-btns button.big { width: 100%; min-width: 0; padding: 12px 16px; font-size: 14.5px; }
+  .record-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+  .record-actions button.big { flex: 1; min-width: 150px; padding: 11px 16px; font-size: 14px; }
+  .rec-msg { display: none; font-size: 13px; color: #4A6B2A; background: var(--green-soft); border-radius: 8px; padding: 8px 12px; margin-bottom: 14px; }
+  .rec-msg.show { display: block; }
+
   /* プレビュー */
   #previewView { display: none; }
   #previewView.show { display: block; }
@@ -229,7 +262,7 @@
   @media print {
     body { background: #fff; }
     .wrap { max-width: none; padding: 0; }
-    header.app-head, .preview-toolbar, .edit-note, .step-note, .env-note, .draft-note { display: none !important; }
+    header.app-head, .preview-toolbar, .edit-note, .step-note, .env-note, .draft-note, .record-actions, .rec-msg, .ask-back { display: none !important; }
     .sheet { border: none; box-shadow: none; border-radius: 0; padding: 0; font-size: 10.5pt; }
     .sheet section { break-inside: avoid; page-break-inside: avoid; }
   }
@@ -257,7 +290,7 @@
   </header>
 
   <div class="step-note">
-    入力した内容は、この端末のブラウザの中だけに保存され、どこにも送信されません。自分専用の端末で使ってください。使い終わったら「下書きを消す」で消せます。
+    入力した内容は、この端末のブラウザの中に保存されます。このツールが自動で内容を送ることはありません。送るのは、あなたが「LINEやメールで送る」「ファイルに保存」を押して、送り先を自分で選んだときだけです。自分専用の端末で使ってください。使い終わったら「下書きを消す」で入力中の内容を消せます(保存した記録は、一覧の「削除」で消せます)。
   </div>
 
   <!-- ================= 入力フォーム ================= -->
@@ -266,6 +299,14 @@
     <div class="draft-note" id="draftNote">
       <span>前回の下書きを復元しました</span>
       <button type="button" onclick="clearDraft()">下書きを消す</button>
+    </div>
+
+    <div class="card">
+      <h2>保存した記録</h2>
+      <div id="recList"></div>
+      <button type="button" class="btn-sub" onclick="document.getElementById('recFile').click()">ファイルから読み込む</button>
+      <input type="file" id="recFile" accept=".json,application/json" style="display:none;" onchange="importRecordFile(this)">
+      <div class="rec-note">ここに保存した記録は、このiPhoneのSafariの中にだけあります。Safariの『履歴とWebサイトデータを消去』をすると消えます。大事な記録は『ファイルに保存』でiCloudにも残してください。<br>また、iPhoneのSafariでは、しばらく開かないと保存した記録が自動で消えることがあります。ホーム画面に追加して使い、大事な記録は「ファイルに保存」で残してください。</div>
     </div>
 
     <div class="card">
@@ -446,6 +487,13 @@
       文章はクリックするとその場で直接修正できます。修正後にそのまま印刷・コピーしてください。
     </div>
 
+    <div class="record-actions">
+      <button type="button" class="big btn-primary" onclick="saveRecord()">この受診記録を保存</button>
+      <button type="button" class="big btn-ghost" onclick="exportCurrentRecord()">ファイルに保存</button>
+      <button type="button" class="big btn-green" onclick="shareText()">LINEやメールで送る</button>
+    </div>
+    <div class="rec-msg" id="recMsg"></div>
+
     <div class="sheet" id="sheet">
       <section>
         <div class="pair">
@@ -545,7 +593,7 @@ const MED_UNITS = ["錠", "ml", "包", "滴", "その他"];
 function makeItem(cls, html) {
   const d = document.createElement("div");
   d.className = "rep-item " + cls;
-  d.innerHTML = html;
+  d.innerHTML = html;   // html はこのファイル内の決まった部品だけ。入力・保存データ・読み込んだファイルの文字は入れない(値は .value / textContent で入れる)
   return d;
 }
 function appendItem(containerId, el) {
@@ -736,7 +784,7 @@ function migrateState(src) {
   return d;
 }
 function applyState(src) {
-  const d = migrateState(src || {});
+  const d = sanitizeState(src || {}) || sanitizeState({});
   STATIC_FIELDS.forEach(id => {
     document.getElementById(id).value = typeof d[id] === "string" ? d[id] : "";
   });
@@ -778,6 +826,7 @@ function clearDraft() {
   clearTimeout(draftTimer);
   try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
   applyState({});
+  openedRecord = null;
   document.getElementById("draftNote").classList.remove("show");
 }
 
@@ -1217,6 +1266,8 @@ function buildPreview(converted) {
   document.getElementById("p_pairs").textContent = buildPairsText(converted) || "　";
   document.getElementById("p_onegai").textContent = buildOnegaiText(converted) || "　";
 
+  if (!converted) applyOpenedFinal();
+
   document.getElementById("formView").classList.add("hide");
   document.getElementById("previewView").classList.add("show");
   window.scrollTo(0, 0);
@@ -1234,7 +1285,7 @@ function backToForm() {
 
 /* ================= コピー ================= */
 function buildShareText() {
-  const g = id => document.getElementById(id).textContent.trim();
+  const g = pText;
 
   return `【受診日】${g("p_date")}
 【次回受診予定日】${g("p_next")}
@@ -1287,6 +1338,324 @@ function fallbackCopy(text, done) {
   document.body.removeChild(ta);
 }
 
+/* ================= 受診記録の保存・一覧・ファイル・共有 ================= */
+const RECORDS_KEY = "jushin-records";
+const P_IDS = ["p_date", "p_next", "p_hospital", "p_diagnosis", "p_medicine",
+  "p_genzai", "p_pairs", "p_onegai", "p_katei", "p_sonota", "p_tsuiki"];
+let openedRecord = null;   // いま開いている(または保存した)記録: { id, date, name, stateJson, finalText }
+
+// プレビュー上の文章(手で直したあとの改行も含めて)を取り出す
+function pText(id) {
+  const el = document.getElementById(id);
+  return ((el.innerText !== undefined ? el.innerText : el.textContent) || "").replace(/\u00a0/g, " ").trim();
+}
+
+function loadRecords() {
+  try {
+    const v = JSON.parse(localStorage.getItem(RECORDS_KEY) || "[]");
+    return Array.isArray(v) ? v.map(sanitizeRecord).filter(Boolean) : [];
+  } catch (e) { return []; }
+}
+function storeRecords(list) {
+  try { localStorage.setItem(RECORDS_KEY, JSON.stringify(list)); return true; }
+  catch (e) { alert("保存できませんでした(このブラウザの保存容量がいっぱいか、保存が許可されていません)。『ファイルに保存』をご利用ください。"); return false; }
+}
+// 決まった項目を、決まった型でだけ取り込む。余計な項目は捨てる(下書き・保存した記録・読み込んだファイルで共通)
+const MAX_TEXT = 20000, MAX_ROWS = 50;
+function isPlainObject(v) { return !!v && typeof v === "object" && !Array.isArray(v); }
+function cleanStr(v, max) { return typeof v === "string" ? v.slice(0, max || MAX_TEXT) : ""; }
+function cleanMatch(v, re) { return typeof v === "string" && re.test(v) ? v : ""; }
+function cleanRows(arr, fn) { return Array.isArray(arr) ? arr.slice(0, MAX_ROWS).filter(isPlainObject).map(fn) : []; }
+function sanitizeState(src) {
+  if (!isPlainObject(src)) return null;
+  const m = migrateState(src);
+  const d = {};
+  STATIC_FIELDS.forEach(id => { d[id] = cleanStr(m[id]); });
+  ["f_birth", "f_date", "f_next_date"].forEach(id => { d[id] = cleanMatch(m[id], /^\d{4}-\d{2}-\d{2}$/); });
+  d.f_next_time = cleanMatch(m.f_next_time, /^\d{2}:\d{2}(:\d{2})?$/);
+  d.f_parent_only = ["parent_ok", "with_child"].includes(m.f_parent_only) ? m.f_parent_only : "";
+  d.pairs = cleanRows(m.pairs, p => ({ soudan: cleanStr(p.soudan), advice: cleanStr(p.advice) }));
+  d.onegai = cleanRows(m.onegai, o => ({
+    to: ONEGAI_TO.includes(o.to) ? o.to : "", other: cleanStr(o.other, 200), text: cleanStr(o.text),
+  }));
+  d.meds = cleanRows(m.meds, x => ({
+    name: cleanStr(x.name, 200),
+    times: Array.isArray(x.times) ? MED_TIMES.filter(tm => x.times.includes(tm)) : [],
+    amount: cleanStr(x.amount, 20),
+    unit: MED_UNITS.includes(x.unit) ? x.unit : MED_UNITS[0],
+    unitOther: cleanStr(x.unitOther, 20),
+    note: cleanStr(x.note, 500),
+  }));
+  d.outstyle = m.outstyle === "bullets" ? "bullets" : "prose";
+  return d;
+}
+function newRecordId() {
+  return "r" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+function sanitizeRecord(r) {
+  if (!isPlainObject(r)) return null;
+  const state = sanitizeState(r.state);
+  if (!state) return null;
+  let finalText = null;
+  if (isPlainObject(r.finalText)) {
+    finalText = {};
+    P_IDS.forEach(id => { finalText[id] = cleanStr(r.finalText[id]); });
+  }
+  return {
+    id: cleanMatch(r.id, /^[A-Za-z0-9_-]{1,40}$/) || newRecordId(),
+    savedAt: cleanMatch(r.savedAt, /^[0-9T:.Z+-]{1,40}$/),
+    state, finalText,
+  };
+}
+function recordSub(r) {
+  return [r.state.f_hospital, r.state.f_dept].map(s => (s || "").trim()).filter(Boolean).join(" ");
+}
+
+// 3つまでの選択肢を出して、押されたものを返す(画面の外を押した時は最後の選択肢=やめる)
+function askChoice(message, choices) {
+  return new Promise(resolve => {
+    const back = document.createElement("div");
+    back.className = "ask-back";
+    const box = document.createElement("div");
+    box.className = "ask-box";
+    const msg = document.createElement("div");
+    msg.className = "ask-msg";
+    msg.textContent = message;
+    const btns = document.createElement("div");
+    btns.className = "ask-btns";
+    const close = value => { back.remove(); resolve(value); };
+    choices.forEach(c => {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "big " + c.cls; b.textContent = c.label;
+      b.onclick = () => close(c.value);
+      btns.appendChild(b);
+    });
+    back.onclick = e => { if (e.target === back) close(choices[choices.length - 1].value); };
+    box.appendChild(msg); box.appendChild(btns); back.appendChild(box);
+    document.body.appendChild(back);
+  });
+}
+function recordFullLabel(r) {
+  const sub = recordSub(r);
+  return recordLabel(r) + (sub ? "（" + sub + "）" : "");
+}
+
+function sortRecords(list) {
+  return list.sort((a, b) =>
+    String(b.state.f_date || "").localeCompare(String(a.state.f_date || "")) ||
+    String(b.savedAt || "").localeCompare(String(a.savedAt || "")));
+}
+function recordLabel(r) {
+  const date = fmtDate(typeof r.state.f_date === "string" ? r.state.f_date : "") || "受診日なし";
+  const name = (typeof r.state.f_name === "string" && r.state.f_name.trim()) || "名前なし";
+  return date + "　" + name;
+}
+function flashRecMsg(text) {
+  const el = document.getElementById("recMsg");
+  el.textContent = text;
+  el.classList.add("show");
+  clearTimeout(flashRecMsg.timer);
+  flashRecMsg.timer = setTimeout(() => el.classList.remove("show"), 3500);
+}
+
+// いまの画面(入力内容+プレビューで直したあとの確定文)から記録を作る
+function currentRecord() {
+  const finalText = {};
+  P_IDS.forEach(id => { finalText[id] = pText(id); });
+  return {
+    id: newRecordId(),
+    savedAt: new Date().toISOString(),
+    state: collectState(),
+    finalText,
+  };
+}
+function rememberOpened(rec) {
+  openedRecord = {
+    id: rec.id, date: rec.state.f_date || "", name: rec.state.f_name || "",
+    stateJson: JSON.stringify(collectState()), finalText: rec.finalText || null,
+  };
+}
+
+async function saveRecord() {
+  const rec = currentRecord();
+  const list = loadRecords();
+  // 同じ受診日・同じ氏名の記録がある時は、黙って上書きせずに必ず聞く(同じ日に別の科を受診した場合など)
+  const sameDay = list.filter(r => r.state.f_date === rec.state.f_date && r.state.f_name === rec.state.f_name);
+  if (sameDay.length) {
+    const target = (openedRecord && sameDay.find(r => r.id === openedRecord.id))
+      || sameDay.slice().sort((a, b) => String(b.savedAt).localeCompare(String(a.savedAt)))[0];
+    const choice = await askChoice(
+      "同じ日の記録があります。\n「" + recordFullLabel(target) + "」\n\n上書きしますか? 別の記録として保存しますか?",
+      [{ label: "上書きする", value: "overwrite", cls: "btn-primary" },
+       { label: "別の記録として保存", value: "new", cls: "btn-green" },
+       { label: "やめる(保存しない)", value: "cancel", cls: "btn-ghost" }]);
+    if (choice === "cancel") return;
+    if (choice === "overwrite") { rec.id = target.id; list[list.findIndex(r => r.id === target.id)] = rec; }
+    else list.push(rec);
+  } else {
+    list.push(rec);
+  }
+  if (!storeRecords(sortRecords(list))) return;
+  rememberOpened(rec);
+  renderRecords();
+  flashRecMsg("この受診記録を保存しました(入力画面のいちばん上「保存した記録」に入っています)");
+}
+
+function renderRecords() {
+  const box = document.getElementById("recList");
+  const list = loadRecords();
+  box.innerHTML = "";
+  if (!list.length) {
+    const p = document.createElement("div");
+    p.className = "rec-empty";
+    p.textContent = "まだ保存した記録はありません。プレビュー画面の「この受診記録を保存」で、ここに残せます。";
+    box.appendChild(p);
+    return;
+  }
+  const wrap = document.createElement("div");
+  wrap.className = "rec-list";
+  list.forEach(r => {
+    const row = document.createElement("div");
+    row.className = "rec-row";
+    const label = document.createElement("div");
+    label.className = "rec-label";
+    label.textContent = recordLabel(r);
+    const btns = document.createElement("div");
+    btns.className = "rec-btns";
+    const mk = (text, cls, fn) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.textContent = text; if (cls) b.className = cls;
+      b.onclick = fn; btns.appendChild(b);
+    };
+    mk("開く", "rec-open", () => openRecord(r.id));
+    mk("ファイルに保存", "", () => exportRecord(r));
+    mk("削除", "", () => deleteRecord(r.id));
+    row.appendChild(label);
+    if (recordSub(r)) {
+      const sub = document.createElement("div");
+      sub.className = "rec-sub";
+      sub.textContent = recordSub(r);
+      row.appendChild(sub);
+    }
+    row.appendChild(btns);
+    wrap.appendChild(row);
+  });
+  box.appendChild(wrap);
+}
+
+function openRecord(id) {
+  const rec = loadRecords().find(r => r.id === id);
+  if (!rec) return;
+  if (stateHasContent(collectState())
+    && !confirm("いま入力されている内容は、この記録の内容に置き換わります。よろしいですか?")) return;
+  applyState(rec.state);
+  rememberOpened(rec);
+  saveDraft();
+  window.scrollTo(0, 0);
+  const note = document.getElementById("draftNote");
+  note.querySelector("span").textContent = "「" + recordLabel(rec) + "」の記録を開きました";
+  note.classList.add("show");
+}
+function deleteRecord(id) {
+  const list = loadRecords();
+  const rec = list.find(r => r.id === id);
+  if (!rec) return;
+  if (!confirm("「" + recordLabel(rec) + "」の記録を削除します。元に戻せません。よろしいですか?")) return;
+  if (!storeRecords(list.filter(r => r.id !== id))) return;
+  if (openedRecord && openedRecord.id === id) openedRecord = null;
+  renderRecords();
+}
+
+// 記録を開いたまま何も変えずにプレビューへ進んだ時は、保存済みの確定文を出す
+function applyOpenedFinal() {
+  if (!openedRecord || !openedRecord.finalText) return;
+  if (JSON.stringify(collectState()) !== openedRecord.stateJson) return;
+  P_IDS.forEach(id => {
+    const v = openedRecord.finalText[id];
+    if (typeof v === "string") document.getElementById(id).textContent = v || "　";
+  });
+}
+
+/* ---- ファイルに保存 / ファイルから読み込む ---- */
+function recordFileName(r) {
+  const clean = s => String(s || "").trim().replace(/[\\/:*?"<>|\s]+/g, "_");
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(r.state.f_date || "") ? r.state.f_date : "日付なし";
+  return "受診記録_" + date + "_" + (clean(r.state.f_name) || "名前なし") + ".json";
+}
+async function exportRecord(r) {
+  const json = JSON.stringify({ app: "jushin-memo", version: 1, record: r }, null, 2);
+  const name = recordFileName(r);
+  // iPhone: 共有シートにファイルを渡す(「"ファイル"に保存」でiCloudに置ける)
+  try {
+    const file = new File([json], name, { type: "application/json" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file] });
+      return;
+    }
+  } catch (e) {
+    if (e && e.name === "AbortError") return;   // 共有シートを閉じただけ
+  }
+  // 使えない環境: ダウンロードに切り替える
+  const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
+  const a = document.createElement("a");
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+function exportCurrentRecord() {
+  exportRecord(currentRecord());
+}
+function importRecordFile(input) {
+  const file = input.files && input.files[0];
+  input.value = "";
+  if (!file) return;
+  if (!/\.json$/i.test(file.name)) { alert("読み込めるのは、このツールで保存した .json ファイルだけです。"); return; }
+  if (file.size > 2 * 1024 * 1024) { alert("ファイルが大きすぎます。このツールで保存したファイルを選んでください。"); return; }
+  const reader = new FileReader();
+  reader.onerror = () => alert("ファイルを読み込めませんでした。");
+  reader.onload = async () => {
+    let data = null;
+    try { data = JSON.parse(String(reader.result)); } catch (e) {}
+    const rec = isPlainObject(data) && data.app === "jushin-memo" ? sanitizeRecord(data.record) : null;
+    if (!rec || !stateHasContent(rec.state)) { alert("このツールで保存した受診記録のファイルではないようです。"); return; }
+    const list = loadRecords();
+    const i = list.findIndex(r => r.id === rec.id);
+    if (i >= 0 && JSON.stringify(list[i]) !== JSON.stringify(rec)) {
+      const choice = await askChoice(
+        "同じ記録が、すでに一覧にあります。\n「" + recordFullLabel(list[i]) + "」\n\n読み込んだ内容で上書きしますか? 別の記録として追加しますか?",
+        [{ label: "上書きする", value: "overwrite", cls: "btn-primary" },
+         { label: "別の記録として追加", value: "new", cls: "btn-green" },
+         { label: "やめる(読み込まない)", value: "cancel", cls: "btn-ghost" }]);
+      if (choice === "cancel") return;
+      if (choice === "overwrite") list[i] = rec;
+      else { rec.id = newRecordId(); list.push(rec); }
+    } else if (i >= 0) {
+      list[i] = rec;   // 中身がまったく同じ
+    } else {
+      list.push(rec);
+    }
+    if (!storeRecords(sortRecords(list))) return;
+    renderRecords();
+    alert("「" + recordLabel(rec) + "」の記録を読み込みました。「保存した記録」の一覧に入っています。");
+  };
+  reader.readAsText(file);
+}
+
+/* ---- 共有文を送る(共有シート) ---- */
+async function shareText() {
+  const text = buildShareText();
+  if (navigator.share) {
+    try { await navigator.share({ text }); return; }
+    catch (e) { if (e && e.name === "AbortError") return; }
+  }
+  const done = () => flashRecMsg("コピーしました(この環境では共有画面が使えないため、コピーに切り替えました)");
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+  } else {
+    fallbackCopy(text, done);
+  }
+}
+
 /* ================= 起動 ================= */
 (() => {
   setPairs([]); setOnegai([]); setMeds([]);   // 最初は1つずつ表示
@@ -1298,6 +1667,7 @@ function fallbackCopy(text, done) {
   form.addEventListener("change", saveDraft);
   memoTextareas().forEach(autoResize);
   loadDraft();
+  renderRecords();
 })();
 </script>
 </body>
